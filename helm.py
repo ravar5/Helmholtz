@@ -4,18 +4,21 @@ import scipy.sparse as sps
 import scipy.sparse.linalg as lg
 import matplotlib.pyplot as plt
 import matplotlib as mlp
+from PIL import Image
 from stack_overflow_wizardry import shiftedColorMap
 
 
 class mode_grid():
     def __init__(self,m,n,mask):
+        self.vecs=[]
+        
         self.m=m
         self.n=n
         self.mask=mask
 
         l=0
         self.itc=[]
-        self.cti=-np.ones((m,n),np.int16)
+        self.cti=-np.ones((m,n),np.int32)
         for i in xrange(m):
             for j in xrange(n):
                 if mask[i,j]==1:
@@ -44,11 +47,20 @@ class mode_grid():
 
         self.mat=sps.csc_matrix((data,(row,col)),shape=(len(self.itc),len(self.itc)),dtype=np.float32)
 
-    def vec_t_resp(self,vec,disp=False,mask=True):
+    def vec_t_resp(self,vec=None,N=None,disp=False,mask=True,zero=False):
+        if not None:
+            vec=self.vecs[1][:,N]
+        if vec is None:
+            raise NameError('Needs either a vector or N, given that vectors are calculated')
+        
         act=np.zeros((self.m,self.n))
         for i, y in enumerate(vec):
             c=self.itc[i]
             act[c[0],c[1]]=np.real(y)
+
+        if zero:
+            act=np.absolute(act)
+            act[self.itc[0][0],self.itc[0][1]]=-.00000001
         if disp:
             if mask:
                 act=np.ma.masked_where(self.mask==0,act)     
@@ -59,6 +71,20 @@ class mode_grid():
             _=plt.imshow(act,interpolation='none',cmap=cmap)
         else:
             return act
+
+    def calc_vecs(self,n):
+        self.vecs=lg.eigs(self.mat,k=n,which='SM')
+
+
+def imMask(fname):
+    d=np.asarray(Image.open(fname).convert('L'))
+    m,n=d.shape    
+    mask=np.asarray(d>128,dtype=np.uint8)
+    return mode_grid(m,n,mask)
+    
+
+'''
+test code
 
 f=30
 n=10
@@ -93,4 +119,23 @@ for i in xrange(160):
             bm[i,j]=1
 
 blobs=mode_grid(160,160,bm)
+
+gm0=np.ones((60,60))
+gm0[28:32,0:0]=0
+g0=mode_grid(60,60,gm0)
+
+gm1=np.ones((60,60))
+gm1[28:32,0:4]=0
+g1=mode_grid(60,60,gm1)
+
+gm2=np.ones((60,60))
+gm2[28:32,0:8]=0
+g2=mode_grid(60,60,gm2)
+
+trim=np.ones([320,80])
+for i in range(80):
+    trim[0:4*i+1,i]=0
+tri=mode_grid(320,80,trim)
+'''
+    
         
